@@ -1,0 +1,39 @@
+<?xml version ="1.0"?>
+<data>
+	<ror name="40mm">
+		<dim>0.040</dim>
+		<mcost>950</mcost>
+	</ror>
+	<ror name="50mm">
+		<dim>0.050</dim>
+		<mcost>1000</mcost>
+	</ror>
+	<ror name="75mm">
+		<dim>0.075</dim>
+		<mcost>1100</mcost>
+	</ror>
+	<ror name="100mm">
+		<dim>0.100</dim>
+		<mcost>1200</mcost>
+	</ror>
+	<ror name="125mm">
+		<dim>0.125</dim>
+		<mcost>1300</mcost>
+	</ror>
+	<ror name="150mm">
+		<dim>0.150</dim>
+		<mcost>1400</mcost>
+	</ror>
+	<ror name="200mm">
+		<dim>0.200</dim>
+		<mcost>1600</mcost>
+	</ror>
+	<ror name="250mm">
+		<dim>0.250</dim>
+		<mcost>2000</mcost>
+	</ror>
+	<ror name="300mm">
+		<dim>0.300</dim>
+		<mcost>2400</mcost>
+	</ror>
+</data>
