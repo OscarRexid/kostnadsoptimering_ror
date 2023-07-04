@@ -2,6 +2,10 @@ import re
 import xml.etree.ElementTree as ET
 import math
 import fluids
+import matplotlib.pyplot as plt
+import numpy as np
+from pandas import DataFrame
+
 
 #predifined regex filter, finds anything starting with atleast one or more numbers then potentially a . and then potentially more numbers
 valuefilter = re.compile("[0-9]+.?[0-9]*");
@@ -20,7 +24,7 @@ with open("setup.cfg","r") as setup_config:
     setup_config.close();
     print("success");
     
-#filter config text	
+#filter config text
 q = filter(content[0]);
 den = filter(content[1]);
 dyn_vis = filter(content[2]);
@@ -63,6 +67,7 @@ vel = []
 con_cost = []
 total_cost = []
 yearly_cost = []
+energy_cost = []
 functional = []
 
      
@@ -157,19 +162,35 @@ for dimension in dim:
     #we save all costs in a list so it can potentially be exported to something like excel in the future 
     yearly_cost.append(calc_en_cost(h_loss));
     con_cost.append(calc_con_cost(mcost[n],dim[n]));
-    total_cost.append(yearly_cost[n]*lifespan+con_cost[n]);
+    energy_cost.append(yearly_cost[n]*lifespan);
+    total_cost.append(energy_cost[n]+con_cost[n]);
     
     print("Total cost for "  + str(dim[n]) + ": " + str(total_cost[n]));
     
-    if functional[n] == True and (min_cost == None or total_cost[n] > min_cost):
+    if functional[n] == True and (min_cost == None or total_cost[n] < min_cost):
         min_cost = total_cost[n];
         min_dim = dim[n];
 
     n+=1;
     
 print("The economical diameter is: " + str(1000*min_dim) + "mm with a total cost of: " + str(math.floor(min_cost)) + "kr");
-   
 
 
 
+col = [];
+for valid in functional:
+    if valid:
+        col.append('green');
+    else:
+        col.append('red');
+
+fig,ax = plt.subplots();
+dim_txt = [];
+for val in dim:
+    dim_txt.append(str(math.floor(val*1000)) +"mm")
+ax.bar(dim_txt,total_cost, color=col)       
+plt.show()
+
+df = DataFrame({'Dimmension' : dim_txt, 'Totalcost' : total_cost, 'functional' : functional, 'con cost' : con_cost, 'en cost' : energy_cost})
+df.to_excel('ror_dim.xlsx', sheet_name='sheet1', index=False)
 
