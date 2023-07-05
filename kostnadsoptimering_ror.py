@@ -1,4 +1,4 @@
-import re
+#import re
 import xml.etree.ElementTree as ET
 import math
 import fluids
@@ -45,7 +45,7 @@ class calculations:
     #yearly energy cost
     def calc_en_cost(head,q,pump_eff,en_cost,yearly_h):
         kw= q*head/(3599000*pump_eff);
-        print("kw: " + str(kw));
+       # print("kw: " + str(kw));
         return en_cost*kw*yearly_h;
 
 
@@ -56,7 +56,7 @@ class calculations:
         con_cost += time_i*sal_i/work_eff + (d+2*thic_m+2*thic_i)*math.pi*sys_length*price_i;
         con_cost += time_a*sal_a/work_eff + (d+2*thic_m+2*thic_i)*math.pi*sys_length*price_a;
         
-        print("con cost: " + str(con_cost))
+        #print("con cost: " + str(con_cost))
         return con_cost
 
  
@@ -71,27 +71,35 @@ class OutputFrame(tk.Frame):
         self.__create_widgets();
         
     def __create_widgets(self):
-        self.resultbutton = tk.Button(self, text="Generate Results",width=30, height=5, command = self.result_button_click);
+        self.resultbutton = tk.Button(self, text="Generera resultat",width=30, height=5, command = self.result_button_click);
         self.resultbutton.grid(column=0, row=0, padx=5, pady=10);
         
-        self.warninglabel = tk.Label(self, text="e");
+        self.warninglabel = tk.Label(self, text="");
         self.warninglabel.grid(column=0, row=1, padx=5, pady=10);
+        
+        self.resultlabel = tk.Label(self, text="", font=25);
+        self.resultlabel.grid(column=0, row=1, padx=5, pady=10);
         
         
     def result_button_click(self):
+        #Check that all fields are filld in or it wont execute the calculations and instead give a red warning text
         failures = 0;
         for data in self.master.shared_data:
             if self.master.shared_data[data].get():
-                print("success");
+                pass
+            #    print("success");
             else:
                 failures +=1;
-                print("Missing: " + data);
+              #  print("Missing: " + data);
                 self.master.shared_data[data].set(0)
-        if failures > 30:
-             self.warninglabel['text'] = "Failure, missing input";
+        if failures > 0:
+             self.warninglabel['text'] = "Misslyckande, icke ifyllt fält funnet!";
              self.warninglabel['fg'] = "red";
         else:
            self.master.calculate()
+           
+    def print_result(self, dim):
+        self.resultlabel['text'] = "Den billigaste är: " + str(1000*dim) + "mm";
             
 class InputFrame(tk.Frame):
     def __init__(self,master):
@@ -253,9 +261,11 @@ class InputFrame(tk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__();
+       
         self.columnconfigure(0, weight=1);
         self.columnconfigure(1, weight=3);
         
+        #Data that will be shared throughout the entire programm, from input window to calculations.
         self.shared_data ={
             "flowvar" : tk.DoubleVar(),
             "denvar" : tk.DoubleVar(),
@@ -299,7 +309,7 @@ class App(tk.Tk):
         self.shared_data["ithiccvar"].set(0.02);
         self.shared_data["apricevar"].set(10000);
         self.shared_data["ipricevar"].set(30000);
-        self.shared_data["minvvar"].set(0);
+        self.shared_data["minvvar"].set(1);
         self.shared_data["maxvvar"].set(6);
         self.shared_data["yearlyhvar"].set(8520);
         self.shared_data["salavar"].set(300);
@@ -309,15 +319,25 @@ class App(tk.Tk):
         self.shared_data["flowvar"].set(300);
         self.shared_data["workeffvar"].set(0.65);
         self.shared_data["scaffvar"].set(150000);
+        self.shared_data["spotswvar"].set(90);
+        self.shared_data["bendvar"].set(12);
+        self.shared_data["lengthvar"].set(70);
+        self.shared_data["heightvar"].set(5);
+        self.shared_data["potheadvar"].set(50);
+        self.shared_data["itimevar"].set(30);
+        self.shared_data["atimevar"].set(25);
+        self.shared_data["salivar"].set(300);
     
     def __create_widgets(self):
-        input_frame = InputFrame(self);
-        input_frame.grid(column=0, row=0);
+        self.input_frame = InputFrame(self);
+        self.input_frame.grid(column=0, row=0);
         
-        output_frame = OutputFrame(self);
-        output_frame.grid(column=1, row=0);
+        self.output_frame = OutputFrame(self);
+        self.output_frame.grid(column=1, row=0);
         
     def calculate(self):
+        
+        #set variables using input gui data(this can be reworked to use gui data directly but not worth the few bytes in ram usage it saves)
         q= self.shared_data["flowvar"].get();
         den = self.shared_data["denvar"].get();
         dyn_vis = self.shared_data["dynvisvar"].get();
@@ -360,20 +380,20 @@ class App(tk.Tk):
         energy_cost = [];
         functional = [];
         
-        for child in root:
+        for child in root: #find all dims and their metercost from xml file
             dim.append(float(child.find('dim').text));
             mcost.append(float(child.find('mcost').text));
 
 
         n= 0; #keeps track of which dim we are on
-        min_cost= None;
+        min_cost= None; 
         min_dim = None;
         
         for dimension in dim:
             #vel
             v = calculations.velocity(dim[n],q);
             vel.append(v);
-            print("Velocity: " + str(v))
+           # print("Velocity: " + str(v))
             if v<= max_v and v>= min_v:
                 functional.append(True);
             else:
@@ -385,7 +405,7 @@ class App(tk.Tk):
                 f = calculations.Mileikovskyi(re,rough/dim[n]);
             else:
                 f = calculations.laminar(re);
-            print("friction coefficient: " + str(f));
+           # print("friction coefficient: " + str(f));
 
             head_bend = calculations.bend_calc(dim[n],f,v,sys_length,bends,den);
 
@@ -395,27 +415,35 @@ class App(tk.Tk):
             diff_head_loss = diff_head*den*9.81 #converting to pascal
             
             h_loss = diff_head_loss+head_bend; #real world height diff + friction loss + bend loss
-            print("loss in head [kpa]: " + str(h_loss/1000));
+           # print("loss in head [kpa]: " + str(h_loss/1000));
 
             if h_loss > (pot_head*den*9.81) and functional[n] != False: #if the loss is greater than pump head then invalidate it if its not already invalidated
                 functional[n] = False;
-            print(functional[n]);    
+            #print(functional[n]);
+                
+                
             #we save all costs in a list so it can potentially be exported to something like excel in the future 
             yearly_cost.append(calculations.calc_en_cost(h_loss,q,pump_eff,en_cost,yearly_h));
             con_cost.append(calculations.calc_con_cost(mcost[n],dim[n],sys_length,spots_w,speed_w,sal_w,sal_i,sal_a,time_i,time_a,price_i,price_a,work_eff,scaff,thic_m,thic_i));
             energy_cost.append(yearly_cost[n]*lifespan);
             total_cost.append(energy_cost[n]+con_cost[n]);
             
-            print("Total cost for "  + str(dim[n]) + ": " + str(total_cost[n]));
+           # print("Total cost for "  + str(dim[n]) + ": " + str(total_cost[n]));
             
-            if functional[n] == True and (min_cost == None or total_cost[n] < min_cost):
+            if functional[n] == True and (min_cost == None or total_cost[n] < min_cost): #if its functional and cheaper than the current cheapest it becomes our cheapest
                 min_cost = total_cost[n];
                 min_dim = dim[n];
     
             n+=1;
             
-        print("The economical diameter is: " + str(1000*min_dim) + "mm with a total cost of: " + str(math.floor(min_cost)) + "kr");
-        print("pot head [kpa]: " + str(pot_head*den*9.81/1000));
+      #  print("The economical diameter is: " + str(1000*min_dim) + "mm with a total cost of: " + str(math.floor(min_cost)) + "kr");
+      #  print("pot head [kpa]: " + str(pot_head*den*9.81/1000));
+        
+        #export to excel
+        df = DataFrame({'Dimmension' : dim_txt, 'Totalcost' : total_cost, 'functional' : functional, 'construction cost' : con_cost, 'energy cost' : energy_cost});
+        df.to_excel('ror_dim.xlsx', sheet_name='sheet1', index=False);
+      
+      
         dim_txt = []; #convert to text so that matplotlib does not interpret the dim as a value axis and scales it to that
         for val in dim:
             dim_txt.append(str(math.floor(val*1000)));
@@ -427,6 +455,7 @@ class App(tk.Tk):
         y_cost = []; # same as above but energy cost for a certain year per valid
         nr=0; #what dim we are currently on
         j=0; # how many valids we have
+        OutputFrame.print_result(self.output_frame,min_dim);  
 
         #go through and mark all the valid dims
         for valid in functional:
@@ -451,6 +480,10 @@ class App(tk.Tk):
 
         #graph for all dimmensions
         ax[0,0].bar(dim_txt,total_cost, color=col);
+        ax[0,0].set_xlabel("Rör dim mm");
+        ax[0,0].set_ylabel("Livscykelkostnad MSek");
+        ax[0,0].set_ylim(top=min_cost*10);
+        
 
         #graph for only valid dimmensions
         ax[0,1].bar(valid_dim,valid_cost, color='green');
@@ -464,14 +497,30 @@ class App(tk.Tk):
             nr +=1
         ax[1,0].legend();
         ax[1,0].set_ylim(bottom=0);
+        ax[1,0].set_xlabel("tid år");
+        ax[1,0].set_ylabel("Livscykelkostnad MSek");
 
-        ax[1,1].bar(dim_txt,vel)
+        normalised_speeds=[];
+        normalised_speeds_dims=[];
+        nr = 0
+        for v in vel:
+            if v < max_v*2:
+                normalised_speeds.append(v);
+                normalised_speeds_dims.append(dim_txt[nr]);
+            
+            nr +=1
+
+
+        ax[1,1].bar(normalised_speeds_dims,normalised_speeds)
+        ax[1,1].set_xlabel("Rör dim mm");
+        ax[1,1].set_ylabel("Mediahastighet m/s");
+        
+       
         plt.show();
 
         #print to excel(more data could be output in the future)
-        df = DataFrame({'Dimmension' : dim_txt, 'Totalcost' : total_cost, 'functional' : functional, 'construction cost' : con_cost, 'energy cost' : energy_cost});
-        df.to_excel('ror_dim.xlsx', sheet_name='sheet1', index=False);
-            
+  
+        
 
 if __name__=="__main__":
     app = App()
