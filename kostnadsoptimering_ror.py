@@ -46,7 +46,7 @@ class Calculations:
     def calc_en_cost(head,q,pump_eff,en_cost,yearly_h,year,endev):
         kw= q*head/(3599000*pump_eff);
        # print("kw: " + str(kw));
-        return en_cost*((1+endev)**year)*kw*yearly_h;
+        return [en_cost*((1+endev)**year)*kw*yearly_h,kw];
 
 
     def calc_con_cost(mcost,d,sys_length,spots_w,speed_w,sal_w,sal_i,sal_a,time_i,time_a,price_i,price_a,work_eff,scaff,thic_m,thic_i):
@@ -262,12 +262,12 @@ class InputFrame(tk.Frame):
         roughentry = tk.Entry(self, width=25, textvariable=self.master.shared_data["roughvar"]);
         roughentry.grid(column=2,row=9,sticky=tk.W,padx=5,pady=(5,10));
         
-        rentlabel = tk.Label(self, text='Kalkylränta [0-1]');
+        rentlabel = tk.Label(self, text='Kalkylränta [%]');
         rentlabel.grid(column=2,row=10,sticky=tk.W,padx=5,pady=(10,0));
         rententry = tk.Entry(self, width=25, textvariable=self.master.shared_data["rentvar"]);
         rententry.grid(column=2,row=11,sticky=tk.W,padx=5,pady=(5,10));
         
-        endevlabel = tk.Label(self, text='Elpris utveckling [0-1]');
+        endevlabel = tk.Label(self, text='Elpris utveckling [%]');
         endevlabel.grid(column=2,row=12,sticky=tk.W,padx=5,pady=(10,0));
         endeventry = tk.Entry(self, width=25, textvariable=self.master.shared_data["endevvar"]);
         endeventry.grid(column=2,row=13,sticky=tk.W,padx=5,pady=(5,10));
@@ -402,6 +402,7 @@ class App(tk.Tk):
         energy_cost = [];
         energy_cost_final = [];
         functional = [];
+        pump_kw = [];
         
         for child in root: #find all dims and their metercost from xml file
             dim.append(float(child.find('dim').text));
@@ -444,16 +445,16 @@ class App(tk.Tk):
                 functional[n] = False;
             #print(functional[n]);
                 
-                
+            pump_kw.append(Calculations.calc_en_cost(h_loss,q,pump_eff,en_cost,yearly_h,0,0)[1]);  
             
-            yearly_energy_cost_rent = []   
+            yearly_energy_cost_rent = [];   
                 
-            yearly_cost.append(Calculations.calc_en_cost(h_loss,q,pump_eff,en_cost,yearly_h,0,0));
+            yearly_cost.append(Calculations.calc_en_cost(h_loss,q,pump_eff,en_cost,yearly_h,0,0)[0]);
             con_cost.append(Calculations.calc_con_cost(mcost[n],dim[n],sys_length,spots_w,speed_w,sal_w,sal_i,sal_a,time_i,time_a,price_i,price_a,work_eff,scaff,thic_m,thic_i));
             
             if endev:
                 for year in range(lifespan+1):
-                    yearly_energy_cost_rent.append(Calculations.calc_en_cost(h_loss,q,pump_eff,en_cost,yearly_h,year,endev)/((1+rent)**year));
+                    yearly_energy_cost_rent.append(Calculations.calc_en_cost(h_loss,q,pump_eff,en_cost,yearly_h,year,endev)[0]/((1+rent)**year));
             else:
                 for year in range(lifespan+1):
                     yearly_energy_cost_rent.append(yearly_cost[n]/((1+rent)**year));
@@ -479,6 +480,7 @@ class App(tk.Tk):
             
         valid_dim = [];
         valid_cost = [];
+        valid_kw = [];
         col = [];
         x_time = []; # list of time lists will be (1ifespan x amount of valids) matrix
         y_cost = []; # same as above but energy cost for a certain year per valid
@@ -497,6 +499,7 @@ class App(tk.Tk):
                 col.append('green'); 
                 valid_dim.append(dim_txt[nr]);
                 valid_cost.append(total_cost[nr]/1000000);
+                valid_kw.append(pump_kw[nr]);
                 time =[];
                 cost = [];
                 for i in range(lifespan+1): #this is to calculate a cost for each year for the valid dims
@@ -529,7 +532,7 @@ class App(tk.Tk):
         ax[0,1].set_xlabel("Rör dim mm");
         ax[0,1].set_ylabel("Livscykelkostnad MSek");
         for i,v in enumerate(valid_cost):
-            ax[0,1].text(i-0.3, 0.1, str(round(v,2)), fontsize=12,color="black")
+            ax[0,1].text(i, 0.1, str(round(v,2)), fontsize=10,color="black",ha='center',va='center')
 
         nr=0;
         y1=[];
@@ -570,9 +573,15 @@ class App(tk.Tk):
         ax[1,1].set_xlabel("Rör dim mm");
         ax[1,1].set_ylabel("Mediahastighet m/s");
         for i,v in enumerate(normalised_speeds):
-            ax[1,1].text(i-0.3, 0.1, str(round(v,2)), fontsize=10,color="black")
+            ax[1,1].text(i, 0.5, str(round(v,2)), fontsize=10,color="black",ha='center',va='center')
             
-        
+        ax[1,2].bar(valid_dim,valid_kw);
+        ax[1,2].set_xlabel("Rör dim mm");
+        ax[1,2].set_ylabel("Energiförbrukning kW");
+        for i,v in enumerate(valid_kw):
+            ax[1,2].text(i,1, str(round(v,2)), fontsize=10,color="black",ha='center',va='center')
+            
+       
        
         plt.show();
 
