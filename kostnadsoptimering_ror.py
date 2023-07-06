@@ -347,7 +347,7 @@ class App(tk.Tk):
         self.shared_data["atimevar"].set(25);
         self.shared_data["salivar"].set(300);
         self.shared_data["rentvar"].set(0.11);
-        self.shared_data["endevvar"].set(0.02);
+        self.shared_data["endevvar"].set(0.04);
     
     def __create_widgets(self):
         self.input_frame = InputFrame(self);
@@ -510,13 +510,18 @@ class App(tk.Tk):
             nr +=1;
 
         #matplot lib setup
-        fig,ax = plt.subplots(nrows=2,ncols=2);
-
+        fig,ax = plt.subplots(nrows=2,ncols=3);
+        
+        nr=0;
+        for cost in total_cost:
+            total_cost[nr] = cost/1000000;
+            nr+=1;
+        
         #graph for all dimmensions
         ax[0,0].bar(dim_txt,total_cost, color=col);
         ax[0,0].set_xlabel("Rör dim mm");
         ax[0,0].set_ylabel("Livscykelkostnad MSek");
-        ax[0,0].set_ylim(top=min_cost*10);
+        ax[0,0].set_ylim(top=(min_cost/1000000)*4);
         
 
         #graph for only valid dimmensions
@@ -525,6 +530,19 @@ class App(tk.Tk):
         ax[0,1].set_ylabel("Livscykelkostnad MSek");
         for i,v in enumerate(valid_cost):
             ax[0,1].text(i-0.3, 0.1, str(round(v,2)), fontsize=12,color="black")
+
+        nr=0;
+        y1=[];
+        y2=[];
+        for cost in total_cost:
+            y1.append(energy_cost_final[nr]/(total_cost[nr]*1000000));
+            y2.append(con_cost[nr]/(total_cost[nr]*1000000));
+            nr+=1;
+        ax[0,2].bar(dim_txt,y1, color='orange', label="Energy");
+        ax[0,2].bar(dim_txt,y2, bottom=y1, color='purple', label="Construction");
+        ax[0,2].set_xlabel("Dim mm");
+        ax[0,2].set_ylabel("Livscykelkostnad %");
+        ax[0,2].legend();
 
         #plot one line for each valid dimension
         nr = 0
@@ -535,6 +553,7 @@ class App(tk.Tk):
         ax[1,0].set_ylim(bottom=0);
         ax[1,0].set_xlabel("tid år");
         ax[1,0].set_ylabel("Livscykelkostnad MSek");
+        
 
         normalised_speeds=[];
         normalised_speeds_dims=[];
@@ -552,6 +571,7 @@ class App(tk.Tk):
         ax[1,1].set_ylabel("Mediahastighet m/s");
         for i,v in enumerate(normalised_speeds):
             ax[1,1].text(i-0.3, 0.1, str(round(v,2)), fontsize=10,color="black")
+            
         
        
         plt.show();
