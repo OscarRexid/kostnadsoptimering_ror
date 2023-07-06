@@ -8,7 +8,7 @@ from pandas import DataFrame
 import tkinter as tk
 
 
-class calculations:
+class Calculations:
     def velocity(d,q):
         return (q/3600)/(((d/2)**2)*math.pi);
     
@@ -43,10 +43,10 @@ class calculations:
         return loss;
 
     #yearly energy cost
-    def calc_en_cost(head,q,pump_eff,en_cost,yearly_h):
+    def calc_en_cost(head,q,pump_eff,en_cost,yearly_h,year,endev):
         kw= q*head/(3599000*pump_eff);
        # print("kw: " + str(kw));
-        return en_cost*kw*yearly_h;
+        return en_cost*((1+endev)**year)*kw*yearly_h;
 
 
     def calc_con_cost(mcost,d,sys_length,spots_w,speed_w,sal_w,sal_i,sal_a,time_i,time_a,price_i,price_a,work_eff,scaff,thic_m,thic_i):
@@ -77,8 +77,10 @@ class OutputFrame(tk.Frame):
         self.warninglabel = tk.Label(self, text="");
         self.warninglabel.grid(column=0, row=1, padx=5, pady=10);
         
-        self.resultlabel = tk.Label(self, text="", font=25);
-        self.resultlabel.grid(column=0, row=1, padx=5, pady=10);
+        self.result_dim_label = tk.Label(self, text="", font=25);
+        self.result_dim_label.grid(column=0, row=1, padx=5, pady=10);
+        self.result_cost_label = tk.Label(self, text="", font=25);
+        self.result_cost_label.grid(column=0, row=2, padx=5, pady=10);
         
         
     def result_button_click(self):
@@ -88,6 +90,8 @@ class OutputFrame(tk.Frame):
             if self.master.shared_data[data].get():
                 pass
             #    print("success");
+            elif data=="endevvar": #add in or data=="" for any other variable that should be allowed to be 0
+                pass
             else:
                 failures +=1;
               #  print("Missing: " + data);
@@ -98,8 +102,9 @@ class OutputFrame(tk.Frame):
         else:
            self.master.calculate()
            
-    def print_result(self, dim):
-        self.resultlabel['text'] = "Den billigaste är: " + str(1000*dim) + "mm";
+    def print_result(self, dim,cost):
+        self.result_dim_label['text'] = "Den billigaste är: " + str(1000*dim) + "mm";
+        self.result_cost_label['text'] = "Den kostar: " + '{:0,.2f}'.format(cost).replace(",","X").replace(".",",").replace("X"," ") + "kr"
             
 class InputFrame(tk.Frame):
     def __init__(self,master):
@@ -109,7 +114,7 @@ class InputFrame(tk.Frame):
         self.columnconfigure(1, weight=3);
         self.columnconfigure(2, weight=5);
         self.__create_widgets();
-        
+          
     def __create_widgets(self):
         
         ##Column 0
@@ -256,6 +261,18 @@ class InputFrame(tk.Frame):
         roughlabel.grid(column=2,row=8,sticky=tk.W,padx=5,pady=(10,0));
         roughentry = tk.Entry(self, width=25, textvariable=self.master.shared_data["roughvar"]);
         roughentry.grid(column=2,row=9,sticky=tk.W,padx=5,pady=(5,10));
+        
+        rentlabel = tk.Label(self, text='Kalkylränta [0-1]');
+        rentlabel.grid(column=2,row=10,sticky=tk.W,padx=5,pady=(10,0));
+        rententry = tk.Entry(self, width=25, textvariable=self.master.shared_data["rentvar"]);
+        rententry.grid(column=2,row=11,sticky=tk.W,padx=5,pady=(5,10));
+        
+        endevlabel = tk.Label(self, text='Elpris utveckling [0-1]');
+        endevlabel.grid(column=2,row=12,sticky=tk.W,padx=5,pady=(10,0));
+        endeventry = tk.Entry(self, width=25, textvariable=self.master.shared_data["endevvar"]);
+        endeventry.grid(column=2,row=13,sticky=tk.W,padx=5,pady=(5,10));
+        
+        
     
     
 class App(tk.Tk):
@@ -293,7 +310,9 @@ class App(tk.Tk):
             "ipricevar" : tk.DoubleVar(),
             "workeffvar" : tk.DoubleVar(),
             "bendvar" : tk.IntVar(),
-            "roughvar" : tk.DoubleVar()
+            "roughvar" : tk.DoubleVar(),
+            "rentvar" : tk.DoubleVar(),
+            "endevvar" : tk.DoubleVar()
             }
         self.__set_default_values();
         self.__create_widgets();
@@ -327,6 +346,8 @@ class App(tk.Tk):
         self.shared_data["itimevar"].set(30);
         self.shared_data["atimevar"].set(25);
         self.shared_data["salivar"].set(300);
+        self.shared_data["rentvar"].set(0.11);
+        self.shared_data["endevvar"].set(0.02);
     
     def __create_widgets(self):
         self.input_frame = InputFrame(self);
@@ -365,7 +386,8 @@ class App(tk.Tk):
         work_eff = self.shared_data["workeffvar"].get();
         bends = self.shared_data["bendvar"].get();
         rough = self.shared_data["roughvar"].get();
-        
+        rent = self.shared_data["rentvar"].get();
+        endev = self.shared_data["endevvar"].get();
         
         tree = ET.parse('ror_dim.xml');
         root = tree.getroot();
@@ -378,6 +400,7 @@ class App(tk.Tk):
         total_cost = [];
         yearly_cost = [];
         energy_cost = [];
+        energy_cost_final = [];
         functional = [];
         
         for child in root: #find all dims and their metercost from xml file
@@ -391,7 +414,7 @@ class App(tk.Tk):
         
         for dimension in dim:
             #vel
-            v = calculations.velocity(dim[n],q);
+            v = Calculations.velocity(dim[n],q);
             vel.append(v);
            # print("Velocity: " + str(v))
             if v<= max_v and v>= min_v:
@@ -400,14 +423,14 @@ class App(tk.Tk):
                 functional.append(False);
 
             #head   
-            re = calculations.reynolds_number(v,den,sys_length,dyn_vis);
+            re = Calculations.reynolds_number(v,den,sys_length,dyn_vis);
             if re >= 2300:
-                f = calculations.Mileikovskyi(re,rough/dim[n]);
+                f = Calculations.Mileikovskyi(re,rough/dim[n]);
             else:
-                f = calculations.laminar(re);
+                f = Calculations.laminar(re);
            # print("friction coefficient: " + str(f));
 
-            head_bend = calculations.bend_calc(dim[n],f,v,sys_length,bends,den);
+            head_bend = Calculations.bend_calc(dim[n],f,v,sys_length,bends,den);
 
            
            # print("loss to friction [kpa]: " + str(headloss(f,dim[n],v)/1000));  headloss(f,dim[n],v)
@@ -422,11 +445,23 @@ class App(tk.Tk):
             #print(functional[n]);
                 
                 
-            #we save all costs in a list so it can potentially be exported to something like excel in the future 
-            yearly_cost.append(calculations.calc_en_cost(h_loss,q,pump_eff,en_cost,yearly_h));
-            con_cost.append(calculations.calc_con_cost(mcost[n],dim[n],sys_length,spots_w,speed_w,sal_w,sal_i,sal_a,time_i,time_a,price_i,price_a,work_eff,scaff,thic_m,thic_i));
-            energy_cost.append(yearly_cost[n]*lifespan);
-            total_cost.append(energy_cost[n]+con_cost[n]);
+            
+            yearly_energy_cost_rent = []   
+                
+            yearly_cost.append(Calculations.calc_en_cost(h_loss,q,pump_eff,en_cost,yearly_h,0,0));
+            con_cost.append(Calculations.calc_con_cost(mcost[n],dim[n],sys_length,spots_w,speed_w,sal_w,sal_i,sal_a,time_i,time_a,price_i,price_a,work_eff,scaff,thic_m,thic_i));
+            
+            if endev:
+                for year in range(lifespan+1):
+                    yearly_energy_cost_rent.append(Calculations.calc_en_cost(h_loss,q,pump_eff,en_cost,yearly_h,year,endev)/((1+rent)**year));
+            else:
+                for year in range(lifespan+1):
+                    yearly_energy_cost_rent.append(yearly_cost[n]/((1+rent)**year));
+                
+            energy_cost.append(yearly_energy_cost_rent);
+            energy_cost_final.append(sum(energy_cost[n][0:lifespan]));
+            
+            total_cost.append(energy_cost_final[n]+con_cost[n]);
             
            # print("Total cost for "  + str(dim[n]) + ": " + str(total_cost[n]));
             
@@ -435,15 +470,9 @@ class App(tk.Tk):
                 min_dim = dim[n];
     
             n+=1;
-            
-      #  print("The economical diameter is: " + str(1000*min_dim) + "mm with a total cost of: " + str(math.floor(min_cost)) + "kr");
-      #  print("pot head [kpa]: " + str(pot_head*den*9.81/1000));
         
-        #export to excel
-        df = DataFrame({'Dimmension' : dim_txt, 'Totalcost' : total_cost, 'functional' : functional, 'construction cost' : con_cost, 'energy cost' : energy_cost});
-        df.to_excel('ror_dim.xlsx', sheet_name='sheet1', index=False);
       
-      
+        
         dim_txt = []; #convert to text so that matplotlib does not interpret the dim as a value axis and scales it to that
         for val in dim:
             dim_txt.append(str(math.floor(val*1000)));
@@ -455,8 +484,13 @@ class App(tk.Tk):
         y_cost = []; # same as above but energy cost for a certain year per valid
         nr=0; #what dim we are currently on
         j=0; # how many valids we have
-        OutputFrame.print_result(self.output_frame,min_dim);  
-
+        OutputFrame.print_result(self.output_frame,min_dim,min_cost);
+        
+        #export to excel
+        df = DataFrame({'Dimmension' : dim_txt, 'Totalcost' : total_cost, 'functional' : functional, 'construction cost' : con_cost, 'energy cost' : energy_cost_final});
+        df.to_excel('ror_dim.xlsx', sheet_name='sheet1', index=False);
+      
+      
         #go through and mark all the valid dims
         for valid in functional:
             if valid:
@@ -465,9 +499,9 @@ class App(tk.Tk):
                 valid_cost.append(total_cost[nr]/1000000);
                 time =[];
                 cost = [];
-                for i in range(math.floor(lifespan+1)): #this is to calculate a cost for each year for the valid dims
+                for i in range(lifespan+1): #this is to calculate a cost for each year for the valid dims
                     time.append(i);
-                    cost.append((yearly_cost[nr]*(i) + con_cost[nr])/1000000);
+                    cost.append((sum(energy_cost[nr][0:i]) + con_cost[nr])/1000000);
                 x_time.append(time);
                 y_cost.append(cost);
                 j +=1
@@ -489,6 +523,8 @@ class App(tk.Tk):
         ax[0,1].bar(valid_dim,valid_cost, color='green');
         ax[0,1].set_xlabel("Rör dim mm");
         ax[0,1].set_ylabel("Livscykelkostnad MSek");
+        for i,v in enumerate(valid_cost):
+            ax[0,1].text(i-0.3, 0.1, str(round(v,2)), fontsize=12,color="black")
 
         #plot one line for each valid dimension
         nr = 0
@@ -514,6 +550,8 @@ class App(tk.Tk):
         ax[1,1].bar(normalised_speeds_dims,normalised_speeds)
         ax[1,1].set_xlabel("Rör dim mm");
         ax[1,1].set_ylabel("Mediahastighet m/s");
+        for i,v in enumerate(normalised_speeds):
+            ax[1,1].text(i-0.3, 0.1, str(round(v,2)), fontsize=10,color="black")
         
        
         plt.show();
