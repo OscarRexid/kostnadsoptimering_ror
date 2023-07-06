@@ -429,21 +429,18 @@ class App(tk.Tk):
                 f = Calculations.Mileikovskyi(re,rough/dim[n]);
             else:
                 f = Calculations.laminar(re);
-           # print("friction coefficient: " + str(f));
 
             head_bend = Calculations.bend_calc(dim[n],f,v,sys_length,bends,den);
 
            
-           # print("loss to friction [kpa]: " + str(headloss(f,dim[n],v)/1000));  headloss(f,dim[n],v)
+    
             
             diff_head_loss = diff_head*den*9.81 #converting to pascal
             
             h_loss = diff_head_loss+head_bend; #real world height diff + friction loss + bend loss
-           # print("loss in head [kpa]: " + str(h_loss/1000));
 
             if h_loss > (pot_head*den*9.81) and functional[n] != False: #if the loss is greater than pump head then invalidate it if its not already invalidated
                 functional[n] = False;
-            #print(functional[n]);
                 
             pump_kw.append(Calculations.calc_en_cost(h_loss,q,pump_eff,en_cost,yearly_h,0,0)[1]);  
             
@@ -452,15 +449,15 @@ class App(tk.Tk):
             yearly_cost.append(Calculations.calc_en_cost(h_loss,q,pump_eff,en_cost,yearly_h,0,0)[0]);
             con_cost.append(Calculations.calc_con_cost(mcost[n],dim[n],sys_length,spots_w,speed_w,sal_w,sal_i,sal_a,time_i,time_a,price_i,price_a,work_eff,scaff,thic_m,thic_i));
             
-            if endev:
+            if endev: #if we have increasing electricity prices we will do a different calculation of the yearly cost
                 for year in range(lifespan+1):
                     yearly_energy_cost_rent.append(Calculations.calc_en_cost(h_loss,q,pump_eff,en_cost,yearly_h,year,endev)[0]/((1+rent)**year));
             else:
                 for year in range(lifespan+1):
                     yearly_energy_cost_rent.append(yearly_cost[n]/((1+rent)**year));
                 
-            energy_cost.append(yearly_energy_cost_rent);
-            energy_cost_final.append(sum(energy_cost[n][0:lifespan]));
+            energy_cost.append(yearly_energy_cost_rent); #Puts a list of all the years and their energy cost into a list of all dims (2d matrix)
+            energy_cost_final.append(sum(energy_cost[n][0:lifespan])); #Gives life cycle cost for energy by summing up all the years
             
             total_cost.append(energy_cost_final[n]+con_cost[n]);
             
@@ -581,63 +578,10 @@ class App(tk.Tk):
         for i,v in enumerate(valid_kw):
             ax[1,2].text(i,1, str(round(v,2)), fontsize=10,color="black",ha='center',va='center')
             
-       
-       
         plt.show();
-
-        #print to excel(more data could be output in the future)
   
         
 
 if __name__=="__main__":
     app = App()
     app.mainloop()
-
-'''
-#predifined regex filter, finds anything starting with atleast one or more numbers then potentially a . and then potentially more numbers
-valuefilter = re.compile("[0-9]+.?[0-9]*");
-
-#function to filter text using the compiled regex
-def filter(content):
-    new = valuefilter.findall(content);
-    print(new);
-    new = float(new[0]); #everything will be numbers but some might be integers however its not worth the time to filter out
-    return new;
-
-#open config file
-with open("setup.cfg","r") as setup_config:
-    print("Setup");
-    content = setup_config.readlines();
-    setup_config.close();
-    print("success");
-    
-#filter config text
-q = filter(content[0]);
-den = filter(content[1]);
-dyn_vis = filter(content[2]);
-min_v = filter(content[3]);
-max_v = filter(content[4]);
-pump_eff = filter(content[5]);
-pot_head = filter(content[6]);
-diff_head = filter(content[7]);
-yearly_h = filter(content[8]);
-en_cost = filter(content[9]);
-sys_length = filter(content[10]);
-lifespan = filter(content[11]);
-scaff = filter(content[12]);
-sal_w = filter(content[13]);
-sal_i = filter(content[14]);
-sal_a = filter(content[15]);
-speed_w = filter(content[16]);
-spots_w = filter(content[17]);
-thic_m = filter(content[18]);
-thic_i = filter(content[19]);
-time_i = filter(content[20]);
-time_a = filter(content[21]);
-price_i = filter(content[22]);
-price_a = filter(content[23]);
-work_eff = filter(content[24]);
-bends = filter(content[25]);
-rough = filter(content[26]);
-
-'''
